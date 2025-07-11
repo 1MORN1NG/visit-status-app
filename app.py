@@ -6,8 +6,8 @@ import zipfile
 st.title("📊 ระบบตรวจสอบสถานะร้านค้า (Visit + Leave)")
 
 # อัปโหลดไฟล์
-master_file = st.file_uploader("1. อัปโหลดไฟล์ Master (.xlsm)", type=["xlsm"])
-leave_file = st.file_uploader("2. อัปโหลดไฟล์ Leave (.xlsm)", type=["xlsm"])
+master_file = st.file_uploader("1. อัปโหลดไฟล์ Master (.xlsx)", type=["xlsx"])
+leave_file = st.file_uploader("2. อัปโหลดไฟล์ Leave (.xlsx)", type=["xlsx"])
 visit_files = st.file_uploader("3. อัปโหลดไฟล์ Visit (.csv) หลายไฟล์", type=["csv"], accept_multiple_files=True)
 
 if master_file and leave_file and visit_files:
