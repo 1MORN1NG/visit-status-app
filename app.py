@@ -49,14 +49,15 @@ if mode in ["รวมเฉพาะ Visit", "รวม Visit + สรุปส
 
                     all_visit_data = pd.concat([all_visit_data, df], ignore_index=True)
 
-                # โหลด previous visit จากไฟล์ที่ user อัปโหลด (ถ้ามี)
+                all_visit_data = all_visit_data.rename(columns={"CustomerCOde": "Customer_COde"})
+
                 if previous_file:
                     previous = pd.read_csv(previous_file, encoding='utf-8-sig')
+                    previous = previous.rename(columns={"CustomerCOde": "Customer_COde"})
                 else:
                     previous = pd.DataFrame()
 
                 visit_data = pd.concat([previous, all_visit_data], ignore_index=True).drop_duplicates()
-                visit_data = visit_data.rename(columns={"CustomerCOde": "Customer_COde"})
 
                 if mode == "รวม Visit + สรุปสถานะร้าน":
                     master_bkk = pd.read_excel(master_file, sheet_name="BKK")
@@ -146,11 +147,19 @@ if mode in ["รวมเฉพาะ Visit", "รวม Visit + สรุปส
 
 # โหมด: รวม Sell In
 if mode == "รวมไฟล์ Sell In Total (Excel)":
-    sellin_files = st.file_uploader("📦 อัปโหลดไฟล์ Sell In (.xlsx) หลายไฟล์", type=["xlsx"], accept_multiple_files=True)
+    st.markdown("### 🔁 (ถ้ามี) อัปโหลด Sell In Master ที่เคยรวมไว้")
+    sellin_master_file = st.file_uploader("📥 sellin_total_master.xlsx", type=["xlsx"])
+
+    sellin_files = st.file_uploader("📦 อัปโหลดไฟล์ Sell In (.xlsx) ใหม่เพิ่มเติม", type=["xlsx"], accept_multiple_files=True)
 
     if sellin_files and st.button("🔁 รวม Sell In"):
         with st.spinner("🧾 กำลังรวมข้อมูล..."):
             all_sheets = pd.DataFrame()
+
+            if sellin_master_file:
+                df_master = pd.read_excel(sellin_master_file)
+                all_sheets = pd.concat([all_sheets, df_master], ignore_index=True)
+
             for f in sellin_files:
                 df = pd.read_excel(f)
                 all_sheets = pd.concat([all_sheets, df], ignore_index=True)
