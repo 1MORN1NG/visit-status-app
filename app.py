@@ -146,7 +146,7 @@ if mode == "รวมไฟล์ Sell In Total (Excel)":
                 all_sheets = pd.concat([all_sheets, df], ignore_index=True)
 
             buffer = io.BytesIO()
-            all_sheets.to_excel(buffer, index=False, encoding="utf-8-sig")
+            all_sheets.to_excel(buffer, index=False)
             buffer.seek(0)
 
             st.success("✅ รวม Sell In สำเร็จ!")
