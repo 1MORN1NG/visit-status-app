@@ -15,16 +15,12 @@ mode = st.radio("📌 เลือกรูปแบบการใช้งา�
     "รวมไฟล์ Sell In Total (Excel)"
 ])
 
-# ฟังก์ชันโหลดไฟล์ visit_merged เดิม
-@st.cache_data
-def load_previous_visit():
-    if os.path.exists("visit_merged.csv"):
-        return pd.read_csv("visit_merged.csv", encoding="utf-8-sig")
-    return pd.DataFrame()
-
 # โหมด: รวม Visit หรือ สรุปสถานะร้าน
 if mode in ["รวมเฉพาะ Visit", "รวม Visit + สรุปสถานะร้าน"]:
-    visit_files = st.file_uploader("1. อัปโหลดไฟล์ Visit (.csv) หลายไฟล์", type=["csv"], accept_multiple_files=True)
+    st.markdown("### 🔁 (ถ้ามี) อัปโหลดไฟล์ Visit Master ที่เคยรวมไว้")
+    previous_file = st.file_uploader("📥 visit_merged.csv", type=["csv"])
+
+    visit_files = st.file_uploader("1. อัปโหลดไฟล์ Visit (.csv) ใหม่เพิ่มเติม", type=["csv"], accept_multiple_files=True)
 
     if mode == "รวม Visit + สรุปสถานะร้าน":
         master_file = st.file_uploader("2. อัปโหลดไฟล์ Master (.xlsx)", type=["xlsx"])
@@ -33,7 +29,6 @@ if mode in ["รวมเฉพาะ Visit", "รวม Visit + สรุปส
     if visit_files and (mode == "รวมเฉพาะ Visit" or (mode == "รวม Visit + สรุปสถานะร้าน" and master_file and leave_file)):
         if st.button("🔁 ประมวลผลข้อมูล"):
             with st.spinner("🚀 กำลังประมวลผล..."):
-
                 visit_columns = [
                     "Id", "Number", "DATE", "UserName", "FirstName", "CustomerCOde", "Customer_Name",
                     "Customer_Location", "survey_updated_at", "เช็คอินหน้าร้าน (เซลฟี่หน้าร้าน)",
@@ -54,7 +49,12 @@ if mode in ["รวมเฉพาะ Visit", "รวม Visit + สรุปส
 
                     all_visit_data = pd.concat([all_visit_data, df], ignore_index=True)
 
-                previous = load_previous_visit()
+                # โหลด previous visit จากไฟล์ที่ user อัปโหลด (ถ้ามี)
+                if previous_file:
+                    previous = pd.read_csv(previous_file, encoding='utf-8-sig')
+                else:
+                    previous = pd.DataFrame()
+
                 visit_data = pd.concat([previous, all_visit_data], ignore_index=True).drop_duplicates()
                 visit_data = visit_data.rename(columns={"CustomerCOde": "Customer_COde"})
 
@@ -131,8 +131,6 @@ if mode in ["รวมเฉพาะ Visit", "รวม Visit + สรุปส
 
                 zip_buffer = io.BytesIO()
                 with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
-                    visit_data.to_csv("visit_merged.csv", index=False, encoding="utf-8-sig")
-
                     visit_bytes = io.BytesIO()
                     visit_data.to_csv(visit_bytes, index=False, encoding="utf-8-sig")
                     zip_file.writestr("visit_merged.csv", visit_bytes.getvalue())
@@ -158,7 +156,7 @@ if mode == "รวมไฟล์ Sell In Total (Excel)":
                 all_sheets = pd.concat([all_sheets, df], ignore_index=True)
 
             buffer = io.BytesIO()
-            all_sheets.to_excel(buffer, index=False, encoding="utf-8-sig")
+            all_sheets.to_excel(buffer, index=False, engine='xlsxwriter')
             buffer.seek(0)
 
             st.success("✅ รวม Sell In สำเร็จ!")
