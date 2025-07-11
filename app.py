@@ -6,18 +6,18 @@ import zipfile
 st.title("📊 ระบบตรวจสอบสถานะร้านค้า (Visit + Leave)")
 
 # อัปโหลดไฟล์
-master_file = st.file_uploader("1. อัปโหลดไฟล์ Master (.xlsx)", type=["xlsx"])
-leave_file = st.file_uploader("2. อัปโหลดไฟล์ Leave (.xlsx)", type=["xlsx"])
-visit_files = st.file_uploader("3. อัปโหลดไฟล์ Visit (.xlsx) หลายไฟล์", type=["xlsx"], accept_multiple_files=True)
+master_file = st.file_uploader("1. อัปโหลดไฟล์ Master (.csv)", type=["csv"])
+leave_file = st.file_uploader("2. อัปโหลดไฟล์ Leave (.csv)", type=["csv"])
+visit_files = st.file_uploader("3. อัปโหลดไฟล์ Visit (.csv) หลายไฟล์", type=["csv"], accept_multiple_files=True)
 
 if master_file and leave_file and visit_files:
     if st.button("🔁 ประมวลผลและรวมไฟล์"):
         with st.spinner("กำลังประมวลผลข้อมูล..."):
-            master_df = pd.read_excel(master_file)
-            leave_df = pd.read_excel(leave_file)
+            master_df = pd.read_csv(master_file)
+            leave_df = pd.read_csv(leave_file)
 
             # รวมไฟล์ Visit
-            visit_all = [pd.read_excel(f) for f in visit_files]
+            visit_all = [pd.read_csv(f) for f in visit_files]
             visit_df = pd.concat(visit_all, ignore_index=True)
 
             # วิเคราะห์สถานะ
@@ -49,12 +49,12 @@ if master_file and leave_file and visit_files:
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
                 visit_bytes = io.BytesIO()
-                visit_df.to_excel(visit_bytes, index=False)
-                zip_file.writestr("visit_merged.xlsx", visit_bytes.getvalue())
+                visit_df.to_csv(visit_bytes, index=False)
+                zip_file.writestr("visit_merged.csv", visit_bytes.getvalue())
 
                 pivot_bytes = io.BytesIO()
-                pivot_df.to_excel(pivot_bytes, index=False)
-                zip_file.writestr("status_summary.xlsx", pivot_bytes.getvalue())
+                pivot_df.to_csv(pivot_bytes, index=False)
+                zip_file.writestr("status_summary.csv", pivot_bytes.getvalue())
 
             zip_buffer.seek(0)
             st.success("✅ ประมวลผลเสร็จสิ้น!")
