@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import io
 import zipfile
+import re
+import itertools
 
 st.title("📊 ระบบตรวจสอบสถานะร้านค้า (Visit + Leave)")
 
@@ -13,46 +15,117 @@ visit_files = st.file_uploader("3. อัปโหลดไฟล์ Visit (.csv
 if master_file and leave_file and visit_files:
     if st.button("🔁 ประมวลผลและรวมไฟล์"):
         with st.spinner("กำลังประมวลผลข้อมูล..."):
-            master_df = pd.read_excel(master_file)
-            leave_df = pd.read_excel(leave_file)
+            # โหลด master sheet ทั้ง BKK และ CNX
+            master_bkk = pd.read_excel(master_file, sheet_name="BKK")
+            master_cnx = pd.read_excel(master_file, sheet_name="CNX")
+            master_df = pd.concat([master_bkk, master_cnx], ignore_index=True)
 
-            # รวมไฟล์ Visit
-            visit_all = [pd.read_csv(f) for f in visit_files]
-            visit_df = pd.concat(visit_all, ignore_index=True)
-            st.write(\"Master ตัวอย่าง:\", master_df.head())
-            st.write(\"Leave ตัวอย่าง:\", leave_df.head())
-            st.write(\"Visit ตัวอย่าง:\", visit_df.head())
+            # โหลด week reference sheet
+            week_ref_preview = pd.read_excel(master_file, sheet_name="Week")
+            week_ref = week_ref_preview[1:].copy()
+            week_ref.columns = ["Year", "week", "Start_Date", "End_Date", "Monthnum", "Month", "Index"]
+            week_ref["Start_Date"] = pd.to_datetime(week_ref["Start_Date"])
+            week_ref["End_Date"] = pd.to_datetime(week_ref["End_Date"])
+            week_ref["week"] = week_ref["week"].astype(int)
 
-            # วิเคราะห์สถานะ
-            weeks = sorted(visit_df['Week'].unique())
-            customer_list = master_df['Customer_code'].unique()
-            cancelled_codes = visit_df[visit_df['VisitDetail'].str.contains("ยกเลิกโครงการ", na=False)]['Customer_code'].unique()
+            # --------------------
+            # Step 1: รวมไฟล์ Visit
+            # --------------------
+            visit_columns = [
+                "Id", "Number", "DATE", "UserName", "FirstName", "CustomerCOde", "Customer_Name",
+                "Customer_Location", "survey_updated_at", "เช็คอินหน้าร้าน (เซลฟี่หน้าร้าน)",
+                "ตรวจสอบตำแหน่งที่ตั้งร้าน", "ถ่ายรูปหน้าร้าน", "สถานะร้านค้า",
+                "กรณียกเลิกโครงการ โปรดระบุเหตุผลทุกครั้ง", "เช็คเอ้าหน้าร้าน (เซลฟี่หน้าร้าน)"
+            ]
 
-            result = []
-            for code in customer_list:
-                for week in weeks:
-                    visit_check = visit_df[(visit_df['Customer_code'] == code) & (visit_df['Week'] == week)]
-                    leave_check = leave_df[(leave_df['Customer_code'] == code) & (leave_df['Week'] == week)]
+            all_visit_data = pd.DataFrame()
+            for upload in visit_files:
+                filename = upload.name
+                df = pd.read_csv(upload, skiprows=2, usecols=range(15), encoding='utf-8-sig')
+                df.columns = visit_columns
+                df["source_file"] = filename
 
-                    if not visit_check.empty:
-                        status = "เยี่ยมแล้ว"
-                    elif code in cancelled_codes:
-                        status = "ยกเลิกโครงการ"
-                    elif not leave_check.empty:
-                        status = "ลา"
-                    else:
-                        status = "ขาดเยี่ยม"
+                # ดึง week จากชื่อไฟล์ เช่น "wk11"
+                match = re.search(r'wk(\d{1,2})', filename.lower())
+                week_num = int(match.group(1)) if match else None
+                df["week"] = week_num
 
-                    result.append({"Customer_code": code, "Week": week, "Status": status})
+                all_visit_data = pd.concat([all_visit_data, df], ignore_index=True)
 
-            status_df = pd.DataFrame(result)
-            pivot_df = status_df.pivot(index="Customer_code", columns="Week", values="Status").reset_index()
+            visit_data = all_visit_data.rename(columns={"CustomerCOde": "Customer_COde"})
 
-            # บันทึกไฟล์เป็น zip
+            # --------------------
+            # Step 2: ประมวลผล Leave
+            # --------------------
+            leave_data = pd.read_excel(leave_file)
+            leave_data = leave_data.rename(columns={"user": "User"})
+
+            def map_week_from_date(date):
+                matched = week_ref[(week_ref["Start_Date"] <= date) & (week_ref["End_Date"] >= date)]
+                if not matched.empty:
+                    return int(matched["week"].values[0])
+                return None
+
+            leave_data["Date"] = pd.to_datetime(leave_data["Date"], errors='coerce')
+            leave_data["mapped_week"] = leave_data["Date"].apply(map_week_from_date)
+
+            user_to_store = master_df[["USER DE", "StoreCode1"]].dropna()
+            user_to_store.columns = ["User", "Customer_COde"]
+            leave_data = leave_data.merge(user_to_store, on="User", how="left")
+
+            # --------------------
+            # Step 3: Mapping สถานะ
+            # --------------------
+            store_list = visit_data["Customer_COde"].dropna().unique()
+            week_list = sorted(visit_data["week"].dropna().unique())
+            base = pd.DataFrame(itertools.product(store_list, week_list), columns=["Customer_COde", "week"])
+
+            visit_flag = visit_data[["Customer_COde", "week", "สถานะร้านค้า"]].drop_duplicates()
+            visit_flag = visit_flag.rename(columns={"สถานะร้านค้า": "has_visit"})
+            base = base.merge(visit_flag, on=["Customer_COde", "week"], how="left")
+
+            leave_flag = leave_data[["Customer_COde", "mapped_week", "การลา"]].drop_duplicates()
+            leave_flag = leave_flag.rename(columns={"mapped_week": "week"})
+            base = base.merge(leave_flag, on=["Customer_COde", "week"], how="left")
+
+            base_sorted = base.sort_values(by=["Customer_COde", "week"])
+
+            def flag_cancel(row):
+                return "ยกเลิกโครงการ" if row["has_visit"] == "ยกเลิกโครงการ" else None
+
+            base_sorted["cancel_flag"] = base_sorted.apply(flag_cancel, axis=1)
+
+            def carry_cancel(df):
+                df = df.sort_values(by="week")
+                df["cancel_carried"] = df["cancel_flag"].eq("ยกเลิกโครงการ").cummax().replace({False: None, True: "ยกเลิกโครงการ"})
+                return df
+
+            base_sorted = base_sorted.groupby("Customer_COde").apply(carry_cancel).reset_index(drop=True)
+
+            def determine_status(row):
+                if row["has_visit"] == "ร้านเปิด":
+                    return "ร้านเปิด"
+                elif row["cancel_carried"] == "ยกเลิกโครงการ":
+                    return "ยกเลิกโครงการ"
+                elif pd.notna(row["การลา"]):
+                    return row["การลา"]
+                else:
+                    return "ขาดเยี่ยม"
+
+            base_unique = base_sorted.drop_duplicates(subset=["Customer_COde", "week"])
+            base_unique["status"] = base_unique.apply(determine_status, axis=1)
+
+            pivot_df = base_unique.pivot(index="Customer_COde", columns="week", values="status")
+            pivot_df.columns = [f"WK{int(c)}" for c in pivot_df.columns]
+            pivot_df.reset_index(inplace=True)
+
+            # --------------------
+            # Step 4: Export เป็น ZIP
+            # --------------------
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zip_file:
                 visit_bytes = io.BytesIO()
-                visit_df.to_csv(visit_bytes, index=False)
+                visit_data.to_csv(visit_bytes, index=False)
                 zip_file.writestr("visit_merged.csv", visit_bytes.getvalue())
 
                 pivot_bytes = io.BytesIO()
