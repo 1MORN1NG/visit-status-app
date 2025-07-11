@@ -6,15 +6,15 @@ import zipfile
 st.title("📊 ระบบตรวจสอบสถานะร้านค้า (Visit + Leave)")
 
 # อัปโหลดไฟล์
-master_file = st.file_uploader("1. อัปโหลดไฟล์ Master (.csv)", type=["csv"])
-leave_file = st.file_uploader("2. อัปโหลดไฟล์ Leave (.csv)", type=["csv"])
+master_file = st.file_uploader("1. อัปโหลดไฟล์ Master (.xlsm)", type=["xlsm"])
+leave_file = st.file_uploader("2. อัปโหลดไฟล์ Leave (.xlsm)", type=["xlsm"])
 visit_files = st.file_uploader("3. อัปโหลดไฟล์ Visit (.csv) หลายไฟล์", type=["csv"], accept_multiple_files=True)
 
 if master_file and leave_file and visit_files:
     if st.button("🔁 ประมวลผลและรวมไฟล์"):
         with st.spinner("กำลังประมวลผลข้อมูล..."):
-            master_df = pd.read_csv(master_file)
-            leave_df = pd.read_csv(leave_file)
+            master_df = pd.read_excel(master_file)
+            leave_df = pd.read_excel(leave_file)
 
             # รวมไฟล์ Visit
             visit_all = [pd.read_csv(f) for f in visit_files]
