@@ -65,8 +65,8 @@ if mode == "รวมเฉพาะ Visit":
                 st.success("✅ รวมไฟล์ Visit สำเร็จ!")
                 st.download_button("📥 ดาวน์โหลด Visit รวมทั้งหมด", data=buffer, file_name=filename)
 
-# โหมด: รวม Visit + สรุปสถานะร้าน
-if mode == "รวม Visit + สรุปสถานะร้าน":
+# โหมด:สรุปสถานะร้าน
+if mode == "สรุปสถานะร้าน":
     visit_file = st.file_uploader("📥 visit_merged.csv (ที่รวมไว้แล้ว)", type=["csv"])
     master_file = st.file_uploader("📥 Master.xlsx", type=["xlsx"])
     leave_file = st.file_uploader("📥 Leave.xlsx", type=["xlsx"])
