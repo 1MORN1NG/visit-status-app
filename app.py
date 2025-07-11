@@ -19,6 +19,9 @@ if master_file and leave_file and visit_files:
             # รวมไฟล์ Visit
             visit_all = [pd.read_csv(f) for f in visit_files]
             visit_df = pd.concat(visit_all, ignore_index=True)
+            st.write(\"Master ตัวอย่าง:\", master_df.head())
+            st.write(\"Leave ตัวอย่าง:\", leave_df.head())
+            st.write(\"Visit ตัวอย่าง:\", visit_df.head())
 
             # วิเคราะห์สถานะ
             weeks = sorted(visit_df['Week'].unique())
